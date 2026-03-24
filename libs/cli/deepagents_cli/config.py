@@ -762,6 +762,9 @@ class Settings:
     nvidia_api_key: str | None
     """NVIDIA API key if available."""
 
+    openrouter_api_key: str | None
+    """OpenRouter API key if available."""
+
     tavily_api_key: str | None
     """Tavily API key if available."""
 
@@ -817,6 +820,7 @@ class Settings:
         anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or None
         google_key = os.environ.get("GOOGLE_API_KEY") or None
         nvidia_key = os.environ.get("NVIDIA_API_KEY") or None
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY") or None
         tavily_key = os.environ.get("TAVILY_API_KEY") or None
         google_cloud_project = os.environ.get("GOOGLE_CLOUD_PROJECT")
 
@@ -855,6 +859,7 @@ class Settings:
             anthropic_api_key=anthropic_key,
             google_api_key=google_key,
             nvidia_api_key=nvidia_key,
+            openrouter_api_key=openrouter_key,
             tavily_api_key=tavily_key,
             google_cloud_project=google_cloud_project,
             deepagents_langchain_project=deepagents_langchain_project,
@@ -889,6 +894,7 @@ class Settings:
             "anthropic_api_key",
             "google_api_key",
             "nvidia_api_key",
+            "openrouter_api_key",
             "tavily_api_key",
         }
         """Fields that hold API keys — used to mask values in change reports
@@ -899,6 +905,7 @@ class Settings:
             "anthropic_api_key",
             "google_api_key",
             "nvidia_api_key",
+            "openrouter_api_key",
             "tavily_api_key",
             "google_cloud_project",
             "deepagents_langchain_project",
@@ -941,6 +948,7 @@ class Settings:
             "anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY") or None,
             "google_api_key": os.environ.get("GOOGLE_API_KEY") or None,
             "nvidia_api_key": os.environ.get("NVIDIA_API_KEY") or None,
+            "openrouter_api_key": os.environ.get("OPENROUTER_API_KEY") or None,
             "tavily_api_key": os.environ.get("TAVILY_API_KEY") or None,
             "google_cloud_project": os.environ.get("GOOGLE_CLOUD_PROJECT"),
             "deepagents_langchain_project": os.environ.get(
@@ -1004,6 +1012,11 @@ class Settings:
     def has_nvidia(self) -> bool:
         """Check if NVIDIA API key is configured."""
         return self.nvidia_api_key is not None
+
+    @property
+    def has_openrouter(self) -> bool:
+        """Check if OpenRouter API key is configured."""
+        return self.openrouter_api_key is not None
 
     @property
     def has_vertex_ai(self) -> bool:
@@ -1707,11 +1720,13 @@ def _get_default_model_spec() -> str:
         return "google_vertexai:gemini-3.1-pro-preview"
     if s.has_nvidia:
         return "nvidia:nvidia/nemotron-3-super-120b-a12b"
+    if s.has_openrouter:
+        return "openrouter:openai/gpt-5.4-mini"
 
     msg = (
         "No credentials configured. Please set one of: "
         "ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, "
-        "GOOGLE_CLOUD_PROJECT, or NVIDIA_API_KEY"
+        "GOOGLE_CLOUD_PROJECT, NVIDIA_API_KEY, or OPENROUTER_API_KEY"
     )
     raise ModelConfigError(msg)
 
