@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from langchain.messages import ToolCall
     from langgraph.runtime import Runtime
 
-from deepagents_cli._env_vars import FORK_SUBAGENT
+from deepagents_cli._env_vars import FORK_SUBAGENT, FORK_TOOLS
 from deepagents_cli.agent import (
     DEFAULT_AGENT_NAME,
     _format_edit_file_description,
@@ -2227,6 +2227,72 @@ class TestCreateCliAgentShellMiddlewareWiring:
         assert researcher["fork"] is True
         assert "model" not in researcher
         assert general_purpose["fork"] is True
+
+    def test_fork_tools_env_enables_clone_tools(self, tmp_path: Path) -> None:
+        """`DEEPAGENTS_CLI_FORK_TOOLS=1` enables SDK clone tools."""
+        mock_settings = self._build_mock_settings(tmp_path)
+        mock_agent = Mock()
+        mock_agent.with_config.return_value = mock_agent
+        fake_model = _make_fake_chat_model()
+
+        with (
+            patch.dict("os.environ", {FORK_TOOLS: "1"}, clear=False),
+            patch("deepagents_cli.agent.settings", mock_settings),
+            patch("deepagents_cli.agent.SkillsMiddleware"),
+            patch("deepagents_cli.agent.MemoryMiddleware"),
+            patch("deepagents_cli.agent.list_subagents", return_value=[]),
+            patch(
+                "deepagents_cli.agent.create_deep_agent",
+                return_value=mock_agent,
+            ) as mock_create,
+            patch(
+                "deepagents._models.init_chat_model",
+                return_value=fake_model,
+            ),
+        ):
+            create_cli_agent(
+                model="fake-model",
+                assistant_id="test",
+                enable_memory=False,
+                enable_skills=False,
+                enable_shell=False,
+            )
+
+        _, kwargs = mock_create.call_args
+        assert kwargs["enable_fork_tools"] is True
+
+    def test_fork_tools_disabled_by_default(self, tmp_path: Path) -> None:
+        """Clone tools stay disabled unless `DEEPAGENTS_CLI_FORK_TOOLS=1`."""
+        mock_settings = self._build_mock_settings(tmp_path)
+        mock_agent = Mock()
+        mock_agent.with_config.return_value = mock_agent
+        fake_model = _make_fake_chat_model()
+
+        with (
+            patch.dict("os.environ", {FORK_TOOLS: ""}, clear=False),
+            patch("deepagents_cli.agent.settings", mock_settings),
+            patch("deepagents_cli.agent.SkillsMiddleware"),
+            patch("deepagents_cli.agent.MemoryMiddleware"),
+            patch("deepagents_cli.agent.list_subagents", return_value=[]),
+            patch(
+                "deepagents_cli.agent.create_deep_agent",
+                return_value=mock_agent,
+            ) as mock_create,
+            patch(
+                "deepagents._models.init_chat_model",
+                return_value=fake_model,
+            ),
+        ):
+            create_cli_agent(
+                model="fake-model",
+                assistant_id="test",
+                enable_memory=False,
+                enable_skills=False,
+                enable_shell=False,
+            )
+
+        _, kwargs = mock_create.call_args
+        assert kwargs["enable_fork_tools"] is False
 
 
 def _mock_agents_dir(agents_dir: Path) -> Mock:

@@ -33,6 +33,7 @@ _FILLER_SENTENCE = (
 LARGE_SHARED_PREFIX = _FILLER_SENTENCE * 120
 
 _FORK_PREAMBLE_MARKER = "You are running as a forked subagent"
+_FORK_TOOL_CHILD_MARKER = "FORK_TOOL_CHILD_TASK_MARKER"
 _PARENT_PREFIX_MARKER = "exhaustive research assistant"
 _NONFORK_SUBAGENT_MARKER = "Reply with exactly one short sentence."
 
@@ -63,6 +64,7 @@ class UsageCapture(BaseCallbackHandler):
         run_id: UUID,
         **kwargs: Any,
     ) -> None:
+        metadata = kwargs.get("metadata") or {}
         system_text = ""
         last_human_text = ""
         summary: list[str] = []
@@ -79,7 +81,12 @@ class UsageCapture(BaseCallbackHandler):
         has_parent = _PARENT_PREFIX_MARKER in system_text
         has_fork_preamble = _FORK_PREAMBLE_MARKER in last_human_text
         has_nonfork_subagent = _NONFORK_SUBAGENT_MARKER in system_text
-        if has_parent and has_fork_preamble:
+        is_fork_tool_child = metadata.get("deepagents_fork_mode") == "child" or (
+            _FORK_TOOL_CHILD_MARKER in last_human_text and "Your only job right now" not in last_human_text
+        )
+        if is_fork_tool_child:
+            agent_type = "fork-child"
+        elif has_parent and has_fork_preamble:
             agent_type = "fork-subagent"
         elif has_nonfork_subagent and not has_parent:
             agent_type = "subagent"
@@ -129,6 +136,20 @@ def build_fork_agent(model: BaseChatModel, *, fork: bool = True) -> AgentLike:
     )
 
 
+def build_fork_tool_agent(model: BaseChatModel) -> AgentLike:
+    """Build the common deepagent used by live fork-tool prompt-cache tests."""
+    return cast(
+        "AgentLike",
+        create_deep_agent(
+            model=model,
+            system_prompt=LARGE_SHARED_PREFIX,
+            tools=[],
+            subagents=[],
+            enable_fork_tools=True,
+        ),
+    )
+
+
 def invoke_twice_with_large_message(agent: AgentLike, capture: UsageCapture) -> None:
     """Warm the provider cache, then invoke the same parent/fork prefix again."""
     large_delegate = (
@@ -148,11 +169,45 @@ def invoke_twice_with_large_message(agent: AgentLike, capture: UsageCapture) -> 
     )
 
 
+def invoke_twice_with_large_message_via_fork_tool(agent: AgentLike, capture: UsageCapture) -> None:
+    """Warm the provider cache, then invoke the same parent/fork-tool prefix again."""
+    child_task = (
+        f"{_FORK_TOOL_CHILD_MARKER}: call the `yield_value` tool with value='child done'. "
+        "Do not call any other tool. Do not summarize the inherited context."
+    )
+    large_delegate = (
+        "Your only job right now is to call the `fork` tool with no arguments, "
+        "then call `clone_ctl` with op='input', the returned fork_id, and the child instruction below as `message`, "
+        "then call `clone_ctl` with op='wait' and the returned fork_id until the child is done. "
+        "Do not produce any other output. Do not summarize the context below.\n\n"
+        f"The child instruction is:\n{child_task}\n\n"
+        "<context>\n" + LARGE_USER_MESSAGE_TEXT + "\n</context>\n\n"
+        "Now call `fork` as instructed above. No other output."
+    )
+    agent.invoke(
+        {"messages": [HumanMessage(content=large_delegate)]},
+        config={"callbacks": [capture]},
+    )
+    agent.invoke(
+        {"messages": [HumanMessage(content=large_delegate)]},
+        config={"callbacks": [capture]},
+    )
+
+
 def assert_fork_reuses_inherited_message_cache(capture: UsageCapture, *, provider: str) -> None:
     """Assert fork cache reads cover the inherited large message, not just system text."""
-    fork_events = [e for e in capture.events if e["agent_type"] == "fork-subagent"]
+    _assert_agent_reuses_inherited_message_cache(capture, provider=provider, agent_type="fork-subagent")
+
+
+def assert_fork_tool_reuses_inherited_message_cache(capture: UsageCapture, *, provider: str) -> None:
+    """Assert fork-tool child cache reads cover the inherited large message."""
+    _assert_agent_reuses_inherited_message_cache(capture, provider=provider, agent_type="fork-child")
+
+
+def _assert_agent_reuses_inherited_message_cache(capture: UsageCapture, *, provider: str, agent_type: str) -> None:
+    fork_events = [e for e in capture.events if e["agent_type"] == agent_type]
     main_events = [e for e in capture.events if e["agent_type"] == "main"]
-    assert fork_events, f"No fork-subagent LLM calls observed for {provider}. Events: {capture.events}"
+    assert fork_events, f"No {agent_type} LLM calls observed for {provider}. Events: {capture.events}"
     assert main_events, f"No main-agent LLM calls observed for {provider}. Events: {capture.events}"
 
     max_parent_read = max((e["cache_read"] for e in main_events), default=0)
@@ -168,16 +223,16 @@ def assert_fork_reuses_inherited_message_cache(capture: UsageCapture, *, provide
         return
 
     parent_sys = next((t for a, t in capture.system_texts if a == "main"), "")
-    fork_sys = next((t for a, t in capture.system_texts if a == "fork-subagent"), "")
+    fork_sys = next((t for a, t in capture.system_texts if a == agent_type), "")
     divergence_at = next(
         (i for i in range(min(len(parent_sys), len(fork_sys))) if parent_sys[i] != fork_sys[i]),
         min(len(parent_sys), len(fork_sys)),
     )
     context_slice = slice(max(0, divergence_at - 80), divergence_at + 200)
     parent_msgs = next((s for a, s in capture.messages_summaries if a == "main"), [])
-    fork_msgs = next((s for a, s in capture.messages_summaries if a == "fork-subagent"), [])
+    fork_msgs = next((s for a, s in capture.messages_summaries if a == agent_type), [])
     msg = (
-        f"{provider} fork cache_read did not cover the inherited large HumanMessage.\n"
+        f"{provider} {agent_type} cache_read did not cover the inherited large HumanMessage.\n"
         f"  max parent cache_read = {max_parent_read}  (system + large_msg)\n"
         f"  max fork   cache_read = {max_fork_read}\n"
         f"  expected fork_read    >= {expected_floor}\n\n"

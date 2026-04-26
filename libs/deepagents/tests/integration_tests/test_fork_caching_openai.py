@@ -7,8 +7,11 @@ from langchain_openai import ChatOpenAI
 from tests.integration_tests.fork_cache_utils import (
     UsageCapture,
     assert_fork_reuses_inherited_message_cache,
+    assert_fork_tool_reuses_inherited_message_cache,
     build_fork_agent,
+    build_fork_tool_agent,
     invoke_twice_with_large_message,
+    invoke_twice_with_large_message_via_fork_tool,
 )
 
 OPENAI_MODEL = "gpt-5.4"
@@ -33,3 +36,12 @@ class TestForkPromptCachingOpenAI:
         invoke_twice_with_large_message(agent, capture)
 
         assert_fork_reuses_inherited_message_cache(capture, provider="OpenAI")
+
+    def test_fork_tool_caches_inherited_messages_not_just_system_prompt(self) -> None:
+        """Fork-tool child cache reads should include inherited messages."""
+        capture = UsageCapture(_openai_cache_read_tokens)
+        agent = build_fork_tool_agent(ChatOpenAI(model_name=OPENAI_MODEL, temperature=0))
+
+        invoke_twice_with_large_message_via_fork_tool(agent, capture)
+
+        assert_fork_tool_reuses_inherited_message_cache(capture, provider="OpenAI")

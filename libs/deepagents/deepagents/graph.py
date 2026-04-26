@@ -33,6 +33,7 @@ from deepagents.backends.protocol import BackendFactory, BackendProtocol
 from deepagents.middleware._tool_exclusion import _ToolExclusionMiddleware
 from deepagents.middleware.async_subagents import AsyncSubAgent, AsyncSubAgentMiddleware, _build_async_subagent_system_prompt
 from deepagents.middleware.filesystem import FilesystemMiddleware
+from deepagents.middleware.forks import ForkMiddleware
 from deepagents.middleware.memory import MemoryMiddleware
 from deepagents.middleware.patch_tool_calls import PatchToolCallsMiddleware
 from deepagents.middleware.permissions import FilesystemPermission, _PermissionMiddleware
@@ -359,6 +360,7 @@ def create_deep_agent(  # noqa: C901, PLR0912, PLR0915  # Complex graph assembly
     debug: bool = False,
     name: str | None = None,
     cache: BaseCache | None = None,
+    enable_fork_tools: bool = False,
 ) -> CompiledStateGraph[AgentState[ResponseT], ContextT, _InputAgentState, _OutputAgentState[ResponseT]]:  # ty: ignore[invalid-type-arguments]  # ty can't verify generic TypedDicts satisfy StateLike bound
     """Create a deep agent.
 
@@ -370,6 +372,7 @@ def create_deep_agent(  # noqa: C901, PLR0912, PLR0915  # Complex graph assembly
     - `ls`, `read_file`, `write_file`, `edit_file`, `glob`, `grep`: file operations
     - `execute`: run shell commands
     - `task`: call subagents
+    - `fork`, `clone_ctl`, `yield_value`: clone the current agent when `enable_fork_tools=True`
 
     The `execute` tool allows running shell commands if the backend implements `SandboxBackendProtocol`.
     For non-sandbox backends, the `execute` tool will return an error message.
@@ -412,6 +415,7 @@ def create_deep_agent(  # noqa: C901, PLR0912, PLR0915  # Complex graph assembly
             - `SkillsMiddleware` (if `skills` is provided)
             - `FilesystemMiddleware`
             - `SubAgentMiddleware`
+            - `ForkMiddleware` (if `enable_fork_tools=True`)
             - `SummarizationMiddleware`
             - `PatchToolCallsMiddleware`
             - `AsyncSubAgentMiddleware` (if async `subagents` are provided)
@@ -530,6 +534,8 @@ def create_deep_agent(  # noqa: C901, PLR0912, PLR0915  # Complex graph assembly
         cache: The cache to use for the agent.
 
             Passed through to [`create_agent`][langchain.agents.create_agent].
+        enable_fork_tools: Enable experimental clone tools (`fork`,
+            `clone_ctl`, and `yield_value`).
 
     Returns:
         A configured deep agent.
@@ -728,6 +734,18 @@ def create_deep_agent(  # noqa: C901, PLR0912, PLR0915  # Complex graph assembly
                 # template. Stale keys silently no-op if the tool is renamed.
                 task_description=_profile.tool_description_overrides.get("task"),
             ),
+        ]
+    )
+    fork_middleware: ForkMiddleware | None = None
+    if enable_fork_tools:
+        fork_middleware = ForkMiddleware(
+            model=model,
+            system_prompt=final_system_prompt,
+            tools=_tools,
+        )
+        deepagent_middleware.append(fork_middleware)
+    deepagent_middleware.extend(
+        [
             create_summarization_middleware(model, backend),
             PatchToolCallsMiddleware(),
         ]
@@ -763,6 +781,9 @@ def create_deep_agent(  # noqa: C901, PLR0912, PLR0915  # Complex graph assembly
     # _PermissionMiddleware must be last so it sees all tools from prior middleware
     if permissions:
         deepagent_middleware.append(_PermissionMiddleware(rules=permissions, backend=backend))
+
+    if fork_middleware is not None:
+        fork_middleware.configure_child_agent(deepagent_middleware)
 
     return create_agent(
         model,

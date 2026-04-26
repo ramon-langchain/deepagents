@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from deepagents.backends.protocol import BackendFactory, BackendProtocol
 from deepagents.middleware._utils import append_to_system_message
+from deepagents.middleware.forks import _is_fork_child_config
 from deepagents.middleware.permissions import FilesystemPermission
 
 
@@ -662,6 +663,8 @@ def _build_task_tool(  # noqa: C901, PLR0915
         subagent_type: str,
         runtime: ToolRuntime,
     ) -> str | Command:
+        if _is_fork_child_config(runtime.config):
+            return "`task` is not available inside a forked child."
         if subagent_type not in subagent_graphs:
             allowed_types = ", ".join([f"`{k}`" for k in subagent_graphs])
             return f"We cannot invoke subagent {subagent_type} because it does not exist, the only allowed types are {allowed_types}"
@@ -678,6 +681,8 @@ def _build_task_tool(  # noqa: C901, PLR0915
         subagent_type: str,
         runtime: ToolRuntime,
     ) -> str | Command:
+        if _is_fork_child_config(runtime.config):
+            return "`task` is not available inside a forked child."
         if subagent_type not in subagent_graphs:
             allowed_types = ", ".join([f"`{k}`" for k in subagent_graphs])
             return f"We cannot invoke subagent {subagent_type} because it does not exist, the only allowed types are {allowed_types}"

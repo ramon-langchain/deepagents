@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 from langchain.agents.middleware.types import AgentMiddleware
 
 from deepagents_cli import theme
-from deepagents_cli._env_vars import FORK_SUBAGENT
+from deepagents_cli._env_vars import FORK_SUBAGENT, FORK_TOOLS
 from deepagents_cli.config import (
     _ShellAllowAll,
     config,
@@ -1256,5 +1256,6 @@ def create_cli_agent(
         interrupt_on=interrupt_on,
         checkpointer=checkpointer,
         subagents=all_subagents or None,
+        enable_fork_tools=os.environ.get(FORK_TOOLS) == "1",
     ).with_config(config)
     return agent, composite_backend
