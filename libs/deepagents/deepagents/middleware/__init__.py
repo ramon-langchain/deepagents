@@ -49,6 +49,7 @@ Use a **plain tool** when:
 
 from deepagents.middleware.async_subagents import AsyncSubAgent, AsyncSubAgentMiddleware
 from deepagents.middleware.filesystem import FilesystemMiddleware
+from deepagents.middleware.forks import ForkMiddleware
 from deepagents.middleware.memory import MemoryMiddleware
 from deepagents.middleware.permissions import FilesystemPermission
 from deepagents.middleware.skills import SkillsMiddleware
@@ -65,6 +66,7 @@ __all__ = [
     "CompiledSubAgent",
     "FilesystemMiddleware",
     "FilesystemPermission",
+    "ForkMiddleware",
     "MemoryMiddleware",
     "SkillsMiddleware",
     "SubAgent",

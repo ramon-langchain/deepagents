@@ -55,6 +55,9 @@ EXTRA_SKILLS_DIRS = "DEEPAGENTS_CLI_EXTRA_SKILLS_DIRS"
 FORK_SUBAGENT = "DEEPAGENTS_CLI_FORK_SUBAGENT"
 """Make CLI-loaded custom subagents inherit the parent conversation context."""
 
+FORK_TOOLS = "DEEPAGENTS_CLI_FORK_TOOLS"
+"""Expose experimental `fork`, `clone_ctl`, and `yield_value` tools in the CLI."""
+
 KITTY_KEYBOARD = "DEEPAGENTS_CLI_KITTY_KEYBOARD"
 """Override kitty-keyboard detection (`1` forces on, `0` forces off)."""
 

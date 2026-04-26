@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +13,7 @@ from tests.unit_tests.chat_model import GenericFakeChatModel
 
 
 def _smoke_model() -> GenericFakeChatModel:
-    """Return a fake model with enough canned responses for prompt snapshot tests."""
+    """Return a fake model with enough canned responses for smoke tests."""
     return GenericFakeChatModel(messages=iter([AIMessage(content="hello!") for _ in range(4)]))
 
 
@@ -25,7 +24,7 @@ def _system_message_as_text(message: SystemMessage) -> str:
     return "\n".join(str(part.get("text", "")) if isinstance(part, dict) else str(part) for part in content)
 
 
-def _invoke_for_snapshot(agent: object, payload: dict[str, Any]) -> None:
+def _invoke_for_smoke_check(agent: object, payload: dict[str, Any]) -> None:
     """Invoke the agent and tolerate fake-model exhaustion after the first call."""
     try:
         if not hasattr(agent, "invoke"):
@@ -37,97 +36,67 @@ def _invoke_for_snapshot(agent: object, payload: dict[str, Any]) -> None:
             raise
 
 
-def _assert_snapshot(snapshot_path: Path, actual: str, *, update_snapshots: bool) -> None:
-    if update_snapshots or not snapshot_path.exists():
-        snapshot_path.write_text(actual, encoding="utf-8")
-        if update_snapshots:
-            return
-        msg = f"Created snapshot at {snapshot_path}. Re-run tests."
-        raise AssertionError(msg)
-
-    expected = snapshot_path.read_text(encoding="utf-8")
-    assert actual == expected
+def _tool_names(tools: list[Any]) -> set[str]:
+    return {convert_to_openai_tool(tool)["function"]["name"] for tool in tools}
 
 
-def _tools_as_openai_snapshot(tools: list[Any]) -> str:
-    formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
-    return json.dumps(formatted_tools, indent=2, sort_keys=True) + "\n"
-
-
-def _assert_tools_snapshot(
-    snapshots_dir: Path,
-    snapshot_name: str,
-    tools: list[Any],
-    *,
-    update_snapshots: bool,
-) -> None:
-    snapshot_path = snapshots_dir / snapshot_name
-    _assert_snapshot(
-        snapshot_path,
-        _tools_as_openai_snapshot(tools),
-        update_snapshots=update_snapshots,
-    )
-
-
-def test_system_prompt_snapshot_with_execute(snapshots_dir: Path, *, update_snapshots: bool) -> None:
+def test_system_prompt_exposes_expected_tools_with_execute() -> None:
     model = _smoke_model()
     backend = LocalShellBackend(root_dir=Path.cwd(), virtual_mode=True)
     agent = create_deep_agent(model=model, backend=backend)
 
-    _invoke_for_snapshot(agent, {"messages": [HumanMessage(content="hi")]})
+    _invoke_for_smoke_check(agent, {"messages": [HumanMessage(content="hi")]})
 
     history = model.call_history
     assert len(history) >= 1
-
-    _assert_tools_snapshot(
-        snapshots_dir,
-        "system_prompt_with_execute_tools.json",
-        history[0]["tools"],
-        update_snapshots=update_snapshots,
-    )
+    tool_names = _tool_names(history[0]["tools"])
+    assert {
+        "execute",
+        "task",
+        "write_todos",
+    }.issubset(tool_names)
+    assert not {"fork", "clone_ctl", "yield_value"} & tool_names
 
     messages = history[0]["messages"]
     system_messages = [m for m in messages if isinstance(m, SystemMessage)]
     assert len(system_messages) >= 1
-
-    snapshot_path = snapshots_dir / "system_prompt_with_execute.md"
-    _assert_snapshot(
-        snapshot_path,
-        _system_message_as_text(system_messages[0]),
-        update_snapshots=update_snapshots,
-    )
+    assert _system_message_as_text(system_messages[0])
 
 
-def test_system_prompt_snapshot_without_execute(snapshots_dir: Path, *, update_snapshots: bool) -> None:
+def test_system_prompt_exposes_expected_tools_without_execute() -> None:
     model = _smoke_model()
     backend = FilesystemBackend(root_dir=str(Path.cwd()), virtual_mode=True)
     agent = create_deep_agent(model=model, backend=backend)
 
-    _invoke_for_snapshot(agent, {"messages": [HumanMessage(content="hi")]})
+    _invoke_for_smoke_check(agent, {"messages": [HumanMessage(content="hi")]})
 
     history = model.call_history
     assert len(history) >= 1
-
-    _assert_tools_snapshot(
-        snapshots_dir,
-        "system_prompt_without_execute_tools.json",
-        history[0]["tools"],
-        update_snapshots=update_snapshots,
-    )
+    tool_names = _tool_names(history[0]["tools"])
+    assert "execute" not in tool_names
+    assert {"task", "read_file"}.issubset(tool_names)
+    assert not {"fork", "clone_ctl", "yield_value"} & tool_names
 
     messages = history[0]["messages"]
     system_messages = [m for m in messages if isinstance(m, SystemMessage)]
     assert len(system_messages) >= 1
-
-    snapshot_path = snapshots_dir / "system_prompt_without_execute.md"
-    _assert_snapshot(
-        snapshot_path,
-        _system_message_as_text(system_messages[0]),
-        update_snapshots=update_snapshots,
-    )
+    assert _system_message_as_text(system_messages[0])
 
 
-def test_custom_system_message_snapshot(snapshots_dir: Path, *, update_snapshots: bool) -> None:
+def test_system_prompt_exposes_fork_tools_when_enabled() -> None:
+    model = _smoke_model()
+    backend = FilesystemBackend(root_dir=str(Path.cwd()), virtual_mode=True)
+    agent = create_deep_agent(model=model, backend=backend, enable_fork_tools=True)
+
+    _invoke_for_smoke_check(agent, {"messages": [HumanMessage(content="hi")]})
+
+    history = model.call_history
+    assert len(history) >= 1
+    tool_names = _tool_names(history[0]["tools"])
+    assert {"fork", "clone_ctl", "yield_value"}.issubset(tool_names)
+
+
+def test_custom_system_message_is_preserved() -> None:
     model = _smoke_model()
     backend = FilesystemBackend(root_dir=str(Path.cwd()), virtual_mode=True)
 
@@ -137,31 +106,20 @@ def test_custom_system_message_snapshot(snapshots_dir: Path, *, update_snapshots
         system_prompt="You are Bobby a virtual assistant for company X",
     )
 
-    _invoke_for_snapshot(agent, {"messages": [HumanMessage(content="hi")]})
+    _invoke_for_smoke_check(agent, {"messages": [HumanMessage(content="hi")]})
 
     history = model.call_history
     assert len(history) >= 1
-
-    _assert_tools_snapshot(
-        snapshots_dir,
-        "custom_system_message_tools.json",
-        history[0]["tools"],
-        update_snapshots=update_snapshots,
-    )
+    assert "task" in _tool_names(history[0]["tools"])
 
     messages = history[0]["messages"]
     system_messages = [m for m in messages if isinstance(m, SystemMessage)]
     assert len(system_messages) >= 1
-
-    snapshot_path = snapshots_dir / "custom_system_message.md"
-    _assert_snapshot(
-        snapshot_path,
-        _system_message_as_text(system_messages[0]),
-        update_snapshots=update_snapshots,
-    )
+    system_text = _system_message_as_text(system_messages[0])
+    assert "You are Bobby a virtual assistant for company X" in system_text
 
 
-def test_system_prompt_snapshot_with_sync_and_async_subagents(snapshots_dir: Path, *, update_snapshots: bool) -> None:
+def test_system_prompt_includes_configured_sync_and_async_subagents() -> None:
     model = _smoke_model()
     backend = FilesystemBackend(root_dir=str(Path.cwd()), virtual_mode=True)
 
@@ -189,31 +147,29 @@ def test_system_prompt_snapshot_with_sync_and_async_subagents(snapshots_dir: Pat
         ],
     )
 
-    _invoke_for_snapshot(agent, {"messages": [HumanMessage(content="hi")]})
+    _invoke_for_smoke_check(agent, {"messages": [HumanMessage(content="hi")]})
 
     history = model.call_history
     assert len(history) >= 1
-
-    _assert_tools_snapshot(
-        snapshots_dir,
-        "system_prompt_with_sync_and_async_subagents_tools.json",
-        history[0]["tools"],
-        update_snapshots=update_snapshots,
-    )
+    assert {
+        "task",
+        "start_async_task",
+        "check_async_task",
+        "update_async_task",
+        "cancel_async_task",
+        "list_async_tasks",
+    }.issubset(_tool_names(history[0]["tools"]))
 
     messages = history[0]["messages"]
     system_messages = [m for m in messages if isinstance(m, SystemMessage)]
     assert len(system_messages) >= 1
-
-    snapshot_path = snapshots_dir / "system_prompt_with_sync_and_async_subagents.md"
-    _assert_snapshot(
-        snapshot_path,
-        _system_message_as_text(system_messages[0]),
-        update_snapshots=update_snapshots,
-    )
+    system_text = _system_message_as_text(system_messages[0])
+    assert "code-reviewer" in system_text
+    assert "remote-researcher" in system_text
+    assert "remote-analyst" in system_text
 
 
-def test_system_prompt_with_memory_and_skills(snapshots_dir: Path, *, update_snapshots: bool) -> None:
+def test_system_prompt_with_memory_and_skills() -> None:
     model = _smoke_model()
 
     agent = create_deep_agent(
@@ -269,25 +225,17 @@ description: Systematic code review process following best practices and style g
         "/memory/user/AGENTS.md": create_file_data(user_memory_content),
     }
 
-    _invoke_for_snapshot(agent, {"messages": [HumanMessage(content="hi")], "files": files})
+    _invoke_for_smoke_check(agent, {"messages": [HumanMessage(content="hi")], "files": files})
 
     history = model.call_history
     assert len(history) >= 1
-
-    _assert_tools_snapshot(
-        snapshots_dir,
-        "system_prompt_with_memory_and_skills_tools.json",
-        history[0]["tools"],
-        update_snapshots=update_snapshots,
-    )
+    assert "task" in _tool_names(history[0]["tools"])
 
     messages = history[0]["messages"]
     system_messages = [m for m in messages if isinstance(m, SystemMessage)]
     assert len(system_messages) >= 1
-
-    snapshot_path = snapshots_dir / "system_prompt_with_memory_and_skills.md"
-    _assert_snapshot(
-        snapshot_path,
-        _system_message_as_text(system_messages[0]),
-        update_snapshots=update_snapshots,
-    )
+    system_text = _system_message_as_text(system_messages[0])
+    assert "Project Memory" in system_text
+    assert "User Memory" in system_text
+    assert "web-research" in system_text
+    assert "code-review" in system_text

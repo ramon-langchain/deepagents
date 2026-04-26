@@ -7,8 +7,11 @@ from langchain_anthropic import ChatAnthropic
 from tests.integration_tests.fork_cache_utils import (
     UsageCapture,
     assert_fork_reuses_inherited_message_cache,
+    assert_fork_tool_reuses_inherited_message_cache,
     build_fork_agent,
+    build_fork_tool_agent,
     invoke_twice_with_large_message,
+    invoke_twice_with_large_message_via_fork_tool,
 )
 
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
@@ -36,3 +39,12 @@ class TestForkPromptCachingAnthropic:
         invoke_twice_with_large_message(agent, capture)
 
         assert_fork_reuses_inherited_message_cache(capture, provider="Anthropic")
+
+    def test_fork_tool_caches_inherited_messages_not_just_system_prompt(self) -> None:
+        """Fork-tool child cache reads should include inherited messages."""
+        capture = UsageCapture(_anthropic_cache_read_tokens)
+        agent = build_fork_tool_agent(ChatAnthropic(model_name=HAIKU_MODEL, temperature=0))
+
+        invoke_twice_with_large_message_via_fork_tool(agent, capture)
+
+        assert_fork_tool_reuses_inherited_message_cache(capture, provider="Anthropic")
