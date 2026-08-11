@@ -2,6 +2,56 @@
 
 # Deep Agents Changelog
 
+## [0.8.0](https://github.com/ramon-langchain/deepagents/compare/deepagents==0.7.5...deepagents==0.8.0) (2026-08-11)
+
+
+### ⚠ BREAKING CHANGES
+
+* **sdk,code,quickjs:** make the `ToDoListMiddleware` list opt-in ([#4929](https://github.com/ramon-langchain/deepagents/issues/4929))
+* **sdk:** remove deprecated backend compatibility shims ([#4541](https://github.com/ramon-langchain/deepagents/issues/4541))
+* **sdk:** disambiguate `read_file` line gutters ([#4561](https://github.com/ramon-langchain/deepagents/issues/4561))
+
+* **sdk:** remove deprecated backend compatibility shims ([#4541](https://github.com/ramon-langchain/deepagents/issues/4541)) ([540a0fa](https://github.com/ramon-langchain/deepagents/commit/540a0fa7eb9a88d82413cf10a5cb5c807d491385))
+
+
+### Features
+
+* **sdk,code,quickjs:** lean system prompt by default, restorable ([#4859](https://github.com/ramon-langchain/deepagents/issues/4859)) ([a8d1b32](https://github.com/ramon-langchain/deepagents/commit/a8d1b32aa4136d0498ba7b48367c8001ac462bd0))
+* **sdk,code,quickjs:** make the `ToDoListMiddleware` list opt-in ([#4929](https://github.com/ramon-langchain/deepagents/issues/4929)) ([9340518](https://github.com/ramon-langchain/deepagents/commit/9340518a26c4287f9ad0c543edc9b69106c15154))
+* **sdk:** add total match cap and streaming to grep ([#4570](https://github.com/ramon-langchain/deepagents/issues/4570)) ([8e86f5e](https://github.com/ramon-langchain/deepagents/commit/8e86f5ecc8908762a2c748880287f190dde70600))
+* **sdk:** expose `execute` exit code in artifact ([#5300](https://github.com/ramon-langchain/deepagents/issues/5300)) ([de8bfca](https://github.com/ramon-langchain/deepagents/commit/de8bfca8255d673c1e7860e8c158ed119238197e))
+* **sdk:** mark editable installs in `lc_versions.deepagents` ([#5158](https://github.com/ramon-langchain/deepagents/issues/5158)) ([ee7ac3d](https://github.com/ramon-langchain/deepagents/commit/ee7ac3d47980e4037403bfea1a13b7b51e06fb4a))
+* **sdk:** report remaining lines for paginated reads ([#4540](https://github.com/ramon-langchain/deepagents/issues/4540)) ([8321194](https://github.com/ramon-langchain/deepagents/commit/83211940a2cdf4c52ac21a6cde8647716a998504))
+* **sdk:** support surrounding lines in filesystem grep results ([#4706](https://github.com/ramon-langchain/deepagents/issues/4706)) ([65230df](https://github.com/ramon-langchain/deepagents/commit/65230df6f91d2bbe5f83d4d938da6bfac52363a1))
+* **sdk:** trim built-in tool descriptions ([#5009](https://github.com/ramon-langchain/deepagents/issues/5009)) ([761f5f0](https://github.com/ramon-langchain/deepagents/commit/761f5f0882dee186f2700f3c903829a5542626fe))
+* **sdk:** use `FireworksPromptCachingMiddleware` for session affinity ([#4598](https://github.com/ramon-langchain/deepagents/issues/4598)) ([5d878bf](https://github.com/ramon-langchain/deepagents/commit/5d878bf1341afc3f96398733b7ef18eec4b66139))
+
+
+### Bug Fixes
+
+* **sdk:** condition `execute` search guidance on visible tools ([#4921](https://github.com/ramon-langchain/deepagents/issues/4921)) ([b65cc00](https://github.com/ramon-langchain/deepagents/commit/b65cc0076caab2e35c07598055b8b338a47e5e1a))
+* **sdk:** condition large-result guidance on visible tools ([#4920](https://github.com/ramon-langchain/deepagents/issues/4920)) ([d3650c7](https://github.com/ramon-langchain/deepagents/commit/d3650c7b1f5ca968abd72345a511719d4ba65907))
+* **sdk:** diagnose rubric grader structured output errors ([#4938](https://github.com/ramon-langchain/deepagents/issues/4938)) ([f51d3a0](https://github.com/ramon-langchain/deepagents/commit/f51d3a0145a0301317c36b0ae15263007dacd6f1))
+* **sdk:** disambiguate `read_file` line gutters ([#4561](https://github.com/ramon-langchain/deepagents/issues/4561)) ([cf057b4](https://github.com/ramon-langchain/deepagents/commit/cf057b4bcdb77ad67014f7dabe71e71f2366c95e))
+* **sdk:** empty read for degenerate `read_file` windows ([#5184](https://github.com/ramon-langchain/deepagents/issues/5184)) ([6bf3b68](https://github.com/ramon-langchain/deepagents/commit/6bf3b68441e04e9e25883a4f91e6b8d0d6c15703))
+* **sdk:** identify file-capable provider classes ([#5326](https://github.com/ramon-langchain/deepagents/issues/5326)) ([e5d5391](https://github.com/ramon-langchain/deepagents/commit/e5d53917c01aadcebe4e7e4a1974322033ae6c87))
+* **sdk:** include HTTP status in rubric grader errors ([#4967](https://github.com/ramon-langchain/deepagents/issues/4967)) ([bca70aa](https://github.com/ramon-langchain/deepagents/commit/bca70aa1f30ee1472809894e2474a76e4ff2f8bd))
+* **sdk:** propagate root listing errors from `CompositeBackend` ([#4925](https://github.com/ramon-langchain/deepagents/issues/4925)) ([4c3b166](https://github.com/ramon-langchain/deepagents/commit/4c3b1667035e3be6ae88cf8c431e0d6f143d2ff4))
+* **sdk:** remove excluded tools from `ToolNode` ([#4698](https://github.com/ramon-langchain/deepagents/issues/4698)) ([9709525](https://github.com/ramon-langchain/deepagents/commit/970952550e8f53cd89a64a4ee98969ce757693ff))
+* **sdk:** resolve exact-file `delete` targets with first-match-wins o… ([#5229](https://github.com/ramon-langchain/deepagents/issues/5229)) ([6dd2a7d](https://github.com/ramon-langchain/deepagents/commit/6dd2a7d2f83bd63844a987f6ec65ac9244ec8c5b))
+* **sdk:** scrub multimodal content blocks unsupported by the model's profile ([#5194](https://github.com/ramon-langchain/deepagents/issues/5194)) ([bdc6104](https://github.com/ramon-langchain/deepagents/commit/bdc610445534ba339360f3988de6b50b60482f1d))
+* **sdk:** warn instead of silently skipping unresolved state schemas ([#5166](https://github.com/ramon-langchain/deepagents/issues/5166)) ([2054c07](https://github.com/ramon-langchain/deepagents/commit/2054c078071b4248707c2b28c7e5254e36703e66))
+
+
+### Performance Improvements
+
+* **langsmith-sandbox:** run LangSmith sandbox commands over the async client ([#5061](https://github.com/ramon-langchain/deepagents/issues/5061)) ([0d08747](https://github.com/ramon-langchain/deepagents/commit/0d0874710615df2c89c3c30e56bfdabb73b44d99))
+
+
+### Reverted Changes
+
+* **code,sdk:** revert `SystemPromptConfig` ([#4969](https://github.com/ramon-langchain/deepagents/issues/4969)) ([d046427](https://github.com/ramon-langchain/deepagents/commit/d046427b536c8ddbce5d804d6ae8b860511a9b44))
+
 ## [0.7.5](https://github.com/langchain-ai/deepagents/compare/deepagents==0.7.4...deepagents==0.7.5) (2026-08-06)
 
 ### Bug Fixes
